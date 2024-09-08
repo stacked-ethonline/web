@@ -1,360 +1,268 @@
 "use client";
-import Link from "next/link"
-import {
-    Activity,
-    ArrowUpRight,
-    CircleUser,
-    CreditCard,
-    DollarSign,
-    Menu,
-    Package2,
-    Search,
-    Users,
-} from "lucide-react"
+import Image from "next/image"
+import {ChevronLeft, Upload,} from "lucide-react"
+import {Button} from "@/components/ui/button"
+import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card"
+import {Input} from "@/components/ui/input"
+import {Label} from "@/components/ui/label"
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select"
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table"
+import {Textarea} from "@/components/ui/textarea"
+import {useState} from "react";
+import {encodeFunctionData} from "viem";
+import {usePrivy, useWallets} from "@privy-io/react-auth";
+import {useRouter} from "next/navigation";
+import abi from "@/abi/abi.json";
 
-import {
-    Avatar,
-    AvatarFallback,
-    AvatarImage,
-} from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {useEffect, useState} from "react";
-import {useWallets} from "@privy-io/react-auth";
-import {ethers} from "ethers";
-import {getState} from "@/api/api";
 
 export default function Dashboard() {
-    const [embBalance, setEmbBalance] = useState("0");
-    const [mruBalance, setMruBalance] = useState("0");
-    const [activeAuctions, setActiveAuctions] = useState(0);
-    const [activeBids, setActiveBids] = useState(0);
-    const { wallets } = useWallets();
-    useEffect(() => {
-        (async () => {
-            const state = await getState();
-
-            if (wallets.length >= 2) {
-                console.log(wallets)
-                const wallet = wallets.filter(w => w.connectorType === "embedded")[0]
-                const provider = await wallet.getEthersProvider();
-                console.log((await provider.getBalance(wallet.address)))
-                setEmbBalance(ethers.utils.formatEther(await provider.getBalance(wallet.address)).toString());
-
-                setMruBalance(ethers.utils.formatEther(state.state.users[wallet.address].ETH))
-            }
-
-            const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-
-            const filledTokenIds = new Set(state.state.filledOrders.map((order: any) => order.tokenId));
-
-            const activeBidTokenIds = new Set(
-                Object.values(state.state.bids).flat().map((order: any) => order.tokenId)
-            );
-
-            const unfilledNFTs = state.state.NFTs.filter((nftDetail: any) => {
-                const { NFT, createdAt } = nftDetail;
-                const isFilled = filledTokenIds.has(NFT.tokenId) || activeBidTokenIds.has(NFT.tokenId);
-                const isOlderThan24Hours = (currentTime - createdAt) > 24 * 60 * 60;
-
-                return !isFilled && !isOlderThan24Hours;
-            });
-            setActiveAuctions(unfilledNFTs.length);
-            let bids = 0;
-            unfilledNFTs.forEach((nft: any) => {
-                if (state.state.bids[nft.NFT.tokenId]) bids+=state.state.bids[nft.NFT.tokenId].length;
-            })
-            setActiveBids(bids);
-        })()
-    }, [wallets]);
+    const [dynamic, setDynamic] = useState<boolean>(false);
+    const router = useRouter()
+    const { wallets } = useWallets()
+    const { sendTransaction } = usePrivy()
+    const create = async () => {
+        const tokenId = parseInt(prompt("Enter the token id")!)
+        const data = encodeFunctionData({
+            abi: abi,
+            functionName: 'createNFT',
+            args: [wallets[1].address, tokenId, 10000000]
+        })
+        const transactionRequest = {
+            to: '0x448559B5839F7c06E5C090F61C3B37dC3B242722',
+            data: data,
+        };
+        await sendTransaction(transactionRequest);
+        router.push("/")
+    }
     return (
-        <div className="flex min-h-screen w-full flex-col">
-            <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-                <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-                    <Card x-chunk="dashboard-01-chunk-0">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Embedded Account Balance
-                            </CardTitle>
-                            <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{embBalance.slice(0, 5)} ETH</div>
-                        </CardContent>
-                    </Card>
-                    <Card x-chunk="dashboard-01-chunk-1">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                MRU Account Balance
-                            </CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{mruBalance} ETH</div>
-                        </CardContent>
-                    </Card>
-                    <Card x-chunk="dashboard-01-chunk-2">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Auctions</CardTitle>
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{activeAuctions}</div>
-                        </CardContent>
-                    </Card>
-                    <Card x-chunk="dashboard-01-chunk-3">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Active Bids</CardTitle>
-                            <Activity className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{activeBids}</div>
-                        </CardContent>
-                    </Card>
-                </div>
-                <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-                    <Card
-                        className="xl:col-span-2" x-chunk="dashboard-01-chunk-4"
-                    >
-                        <CardHeader className="flex flex-row items-center">
-                            <div className="grid gap-2">
-                                <CardTitle>Open Auctions</CardTitle>
-                                <CardDescription>
-                                    These auctions are accepting new bids.
-                                </CardDescription>
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+
+            <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
+                <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+                    <div className="mx-auto grid max-w-[59rem] flex-1 auto-rows-max gap-4">
+                        <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => router.push("/")}>
+                                <ChevronLeft className="h-4 w-4"/>
+                                <span className="sr-only">Back</span>
+                            </Button>
+                            <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0" >
+                                Create NFT
+                            </h1>
+                            <div className="hidden items-center gap-2 md:ml-auto md:flex">
+                                <Button variant="outline" size="sm">
+                                    Discard
+                                </Button>
+                                <Button size="sm" onClick={create}>Create</Button>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Customer</TableHead>
-                                        <TableHead className="hidden xl:table-column">
-                                            Type
-                                        </TableHead>
-                                        <TableHead className="hidden xl:table-column">
-                                            Status
-                                        </TableHead>
-                                        <TableHead className="hidden xl:table-column">
-                                            Date
-                                        </TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>
-                                            <div className="font-medium">Liam Johnson</div>
-                                            <div className="hidden text-sm text-muted-foreground md:inline">
-                                                liam@example.com
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-[1fr_250px] lg:grid-cols-3 lg:gap-8">
+                            <div className="grid auto-rows-max items-start gap-4 lg:col-span-2 lg:gap-8">
+                                <Card x-chunk="dashboard-07-chunk-0">
+                                    <CardHeader>
+                                        <CardTitle>NFT Details</CardTitle>
+                                        <CardDescription>
+                                            Fill the following details to create an NFT.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid gap-6">
+                                            <div className="grid gap-3">
+                                                <Label htmlFor="name">Name</Label>
+                                                <Input
+                                                    id="name"
+                                                    type="text"
+                                                    className="w-full"
+                                                />
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            Sale
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            <Badge className="text-xs" variant="outline">
-                                                Approved
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                                            2023-06-23
-                                        </TableCell>
-                                        <TableCell className="text-right">$250.00</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>
-                                            <div className="font-medium">Olivia Smith</div>
-                                            <div className="hidden text-sm text-muted-foreground md:inline">
-                                                olivia@example.com
+                                            <div className="grid gap-3">
+                                                <Label htmlFor="description">Description</Label>
+                                                <Textarea
+                                                    id="description"
+                                                    className="min-h-32"
+                                                />
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            Refund
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            <Badge className="text-xs" variant="outline">
-                                                Declined
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                                            2023-06-24
-                                        </TableCell>
-                                        <TableCell className="text-right">$150.00</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>
-                                            <div className="font-medium">Noah Williams</div>
-                                            <div className="hidden text-sm text-muted-foreground md:inline">
-                                                noah@example.com
+                                            <div className="grid gap-3">
+                                                <Label htmlFor="image">Image</Label>
+                                                <Input
+                                                    id="image"
+                                                    type="text"
+                                                    className="w-full"
+                                                />
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            Subscription
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            <Badge className="text-xs" variant="outline">
-                                                Approved
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                                            2023-06-25
-                                        </TableCell>
-                                        <TableCell className="text-right">$350.00</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>
-                                            <div className="font-medium">Emma Brown</div>
-                                            <div className="hidden text-sm text-muted-foreground md:inline">
-                                                emma@example.com
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                {dynamic && (
+                                    <Card x-chunk="dashboard-07-chunk-1">
+                                        <CardHeader>
+                                            <CardTitle>Image Order</CardTitle>
+                                            <CardDescription>
+                                                Select the duration for each image.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="w-[100px]">Name</TableHead>
+                                                        <TableHead>Duration(in Days)</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    <TableRow>
+                                                        <TableCell className="font-semibold">
+                                                            Image-1
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Label htmlFor="stock-1" className="sr-only">
+                                                                Stock
+                                                            </Label>
+                                                            <Input
+                                                                id="stock-1"
+                                                                type="number"
+                                                                defaultValue="100"
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    <TableRow>
+                                                        <TableCell className="font-semibold">
+                                                            Image-2
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Label htmlFor="stock-2" className="sr-only">
+                                                                Stock
+                                                            </Label>
+                                                            <Input
+                                                                id="stock-2"
+                                                                type="number"
+                                                                defaultValue="143"
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    <TableRow>
+                                                        <TableCell className="font-semibold">
+                                                            Image-3
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Label htmlFor="stock-3" className="sr-only">
+                                                                Stock
+                                                            </Label>
+                                                            <Input
+                                                                id="stock-3"
+                                                                type="number"
+                                                                defaultValue="32"
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                    </Card>
+
+                                )}
+                            </div>
+                            <div className="grid auto-rows-max items-start gap-4 lg:gap-8">
+                                <Card x-chunk="dashboard-07-chunk-5">
+                                    <CardHeader>
+                                        <CardTitle>NFT Type</CardTitle>
+                                        <CardDescription>
+                                            Toggle to create dynamic NFT.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div></div>
+                                        <Button size="sm" variant={dynamic ? "secondary" : "default" } onClick={() => setDynamic(!dynamic)}>
+                                            {dynamic ? "Switch to Static" : "Switch to Dynamic"}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <Card x-chunk="dashboard-07-chunk-3">
+                                    <CardHeader>
+                                        <CardTitle>Additional Details</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid gap-6">
+                                            <div className="grid gap-3">
+                                                <Label htmlFor="chain">Chain</Label>
+                                                <Select>
+                                                    <SelectTrigger id="chain" aria-label="Select status">
+                                                        <SelectValue placeholder="Select status"/>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="draft">Draft</SelectItem>
+                                                        <SelectItem value="published">Active</SelectItem>
+                                                        <SelectItem value="archived">Archived</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            Sale
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            <Badge className="text-xs" variant="outline">
-                                                Approved
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                                            2023-06-26
-                                        </TableCell>
-                                        <TableCell className="text-right">$450.00</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>
-                                            <div className="font-medium">Liam Johnson</div>
-                                            <div className="hidden text-sm text-muted-foreground md:inline">
-                                                liam@example.com
+                                            <div className="grid gap-3">
+                                                <Label htmlFor="floor">Floor Price(in ETH)</Label>
+                                                <Input
+                                                    id="floor"
+                                                    type="number"
+                                                    className="w-full"
+                                                />
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            Sale
-                                        </TableCell>
-                                        <TableCell className="hidden xl:table-column">
-                                            <Badge className="text-xs" variant="outline">
-                                                Approved
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                                            2023-06-27
-                                        </TableCell>
-                                        <TableCell className="text-right">$550.00</TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                    <Card x-chunk="dashboard-01-chunk-5">
-                        <CardHeader>
-                            <CardTitle>Your Bids</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-8">
-                            <div className="flex items-center gap-4">
-                                <Avatar className="hidden h-9 w-9 sm:flex">
-                                    <AvatarImage src="/avatars/01.png" alt="Avatar" />
-                                    <AvatarFallback>OM</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Olivia Martin
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        olivia.martin@email.com
-                                    </p>
-                                </div>
-                                <div className="ml-auto font-medium">+$1,999.00</div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                {dynamic && (
+                                    <Card
+                                        className="overflow-hidden" x-chunk="dashboard-07-chunk-4"
+                                    >
+                                        <CardHeader>
+                                            <CardTitle>NFT Images</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid gap-2">
+                                                <Image
+                                                    alt="Product image"
+                                                    className="aspect-square w-full rounded-md object-cover"
+                                                    height="300"
+                                                    src="/placeholder.svg"
+                                                    width="300"
+                                                />
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <button>
+                                                        <Image
+                                                            alt="Product image"
+                                                            className="aspect-square w-full rounded-md object-cover"
+                                                            height="84"
+                                                            src="/placeholder.svg"
+                                                            width="84"
+                                                        />
+                                                    </button>
+                                                    <button>
+                                                        <Image
+                                                            alt="Product image"
+                                                            className="aspect-square w-full rounded-md object-cover"
+                                                            height="84"
+                                                            src="/placeholder.svg"
+                                                            width="84"
+                                                        />
+                                                    </button>
+                                                    <button
+                                                        className="flex aspect-square w-full items-center justify-center rounded-md border border-dashed">
+                                                        <Upload className="h-4 w-4 text-muted-foreground"/>
+                                                        <span className="sr-only">Upload</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="hidden h-9 w-9 sm:flex">
-                                    <AvatarImage src="/avatars/02.png" alt="Avatar" />
-                                    <AvatarFallback>JL</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Jackson Lee
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        jackson.lee@email.com
-                                    </p>
-                                </div>
-                                <div className="ml-auto font-medium">+$39.00</div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="hidden h-9 w-9 sm:flex">
-                                    <AvatarImage src="/avatars/03.png" alt="Avatar" />
-                                    <AvatarFallback>IN</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Isabella Nguyen
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        isabella.nguyen@email.com
-                                    </p>
-                                </div>
-                                <div className="ml-auto font-medium">+$299.00</div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="hidden h-9 w-9 sm:flex">
-                                    <AvatarImage src="/avatars/04.png" alt="Avatar" />
-                                    <AvatarFallback>WK</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        William Kim
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        will@email.com
-                                    </p>
-                                </div>
-                                <div className="ml-auto font-medium">+$99.00</div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="hidden h-9 w-9 sm:flex">
-                                    <AvatarImage src="/avatars/05.png" alt="Avatar" />
-                                    <AvatarFallback>SD</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Sofia Davis
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        sofia.davis@email.com
-                                    </p>
-                                </div>
-                                <div className="ml-auto font-medium">+$39.00</div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </main>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 md:hidden">
+                            <Button variant="outline" size="sm">
+                                Discard
+                            </Button>
+                            <Button onClick={create} size="sm">Create NFT</Button>
+                        </div>
+                    </div>
+                </main>
+            </div>
         </div>
     )
 }

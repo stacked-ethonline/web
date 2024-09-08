@@ -1,23 +1,25 @@
 import { useLogs } from "@/context/logs.context";
 import { LOG_TYPE } from "@/lib/constants";
-import { usePrivy } from "@privy-io/react-auth";
+import {getEmbeddedConnectedWallet, usePrivy, useWallets} from "@privy-io/react-auth";
 import { submitAction } from "../api/api";
 import { useMruInfo } from "./useMruInfo";
 
 export const useAction = () => {
-  const { user, signTypedData } = usePrivy();
+  const { signTypedData } = usePrivy();
+  const { wallets } = useWallets()
   const { mruInfo } = useMruInfo();
   const { addLog } = useLogs();
 
   const submit = async (name: string, payload: any) => {
-    if (!mruInfo || !user?.wallet) {
+    const wallet = getEmbeddedConnectedWallet(wallets);
+    if (!mruInfo || !wallet) {
       return;
     }
-
     const inputs = { ...payload };
     const { transitionToSchema, domain, schemas } = mruInfo;
-    const msgSender = user.wallet.address;
+    const msgSender = wallet.address;
 
+    console.log(msgSender)
     const schemaName = transitionToSchema[name];
     const schema = schemas[schemaName];
 

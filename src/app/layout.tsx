@@ -8,8 +8,8 @@ import { LogsProvider } from "@/context/logs.context";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Counter",
-  description: "Stackr Starter",
+  title: "Stacked",
+  description: "Stacked MRU Demo",
   icons: [
     {
       rel: "icon",
